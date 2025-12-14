@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-based Sign Language Recognition System</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* --- General Styles --- */
+body {
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
+    /* Rich Gradient Background */
+    background: linear-gradient(135deg, #a8c0ff 0%, #3f2b96 100%);
+    color: #333;
+    padding: 20px;
+    margin: 0;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+h1 {
+    color: #333;
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 30px;
+    font-weight: 300;
+}
+
+/* New style for the separator line */
+.header-separator {
+    border: none;
+    height: 3px;
+    background-color: #333; /* Dark color for high contrast */
+    width: 60%; /* Make it narrower than the container for effect */
+    margin: 20px auto 40px auto; /* Adjust vertical spacing */
+    border-radius: 1.5px;
+    opacity: 0.8; /* Slight transparency */
+}
+
+/* --- Visual Area (Main Container) */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 30px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 25px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* --- Camera and Control Panel Layout --- */
+.visual-section {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Align to the top */
+    gap: 30px;
+    margin-bottom: 40px;
+    flex-wrap: wrap; /* Allows wrapping on small screens */
+}
+
+/* New container for the output and status boxes */
+.control-panel {
+    display: flex;
+    flex-direction: column; /* Stack boxes vertically */
+    gap: 25px;
+    min-width: 250px; /* Minimum width for the side panel */
+    flex-grow: 1;
+    max-width: 400px; /* Prevent it from getting too wide */
+}
+
+canvas {
+    border: 8px solid #00c6ff;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    display: block;
+    max-width: 700px;
+    width: 100%;
+    height: auto;
+    background: #000;
+    transition: all 0.3s ease-in-out;
+    order: 2; /* Put canvas on the right side on large screens */
+    /* === FIX: Apply horizontal flip for mirror effect === */
+    transform: scaleX(-1); 
+}
+
+#video {
+    display: none;
+}
+
+/* --- Output & Status Boxes Styles --- */
+#output-box {
+    padding: 25px;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #ffffff 0%, #eef0f3 100%);
+    border: 1px solid #ddd;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.05), -5px -5px 15px #ffffff;
+    transition: box-shadow 0.3s, transform 0.3s;
+}
+
+#output-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 8px 8px 20px rgba(0,0,0,0.1), -8px -8px 20px #ffffff;
+}
+
+#output-box h2 {
+    color: #4a4a4a;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+#output {
+    font-size: 120px;
+    font-weight: 700;
+    color: #FF6B6B;
+    line-height: 1;
+    margin: 10px 0 15px 0;
+    text-shadow: 4px 4px 6px rgba(0,0,0,0.1);
+}
+
+.confidence {
+    font-size: 1.4rem;
+    color: #2c3e50;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+/* --- Status Box --- */
+#status, #history-box { /* Apply similar styling to both */
+    padding: 25px;
+    background: #f8f9fa;
+    border-radius: 20px;
+    border: 1px solid #eee;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.05);
+}
+
+#status h3, #history-box h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #3f2b96;
+    margin-bottom: 10px;
+}
+
+#status-text {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-top: 5px;
+    transition: color 0.3s;
+}
+
+/* --- History Box Specific Styles --- */
+#sequence-display {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+    background-color: #e6e9f0;
+    border-radius: 10px;
+    height: 60px; /* Fixed height for visual consistency */
+}
+
+.sequence-item {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #6c757d; /* Muted color for history */
+    transition: all 0.3s ease-in-out;
+    opacity: 0.5;
+    transform: scale(0.9);
+}
+
+/* Emphasize the newest item */
+.sequence-item:last-child {
+    color: #FF6B6B; /* Match output color */
+    opacity: 1;
+    transform: scale(1.1);
+    border-bottom: 3px solid #FF6B6B;
+}
+
+/* --- Instructions --- */
+.instructions {
+    background: #f0f4ff;
+    padding: 30px;
+    border-radius: 20px;
+    margin-top: 40px;
+    border: 1px solid #c3cfe2;
+}
+
+.instructions h3 {
+    color: #3f2b96;
+    margin-bottom: 20px;
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.letter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.letter-item {
+    padding: 12px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    font-weight: 600;
+    color: #555;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.1rem;
+}
+
+.letter-item:hover {
+    background: #e6e9f0;
+    border-color: #a8c0ff;
+    transform: scale(1.02);
+}
+
+/* --- Footer --- */
+footer {
+    margin-top: 40px;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    font-weight: 300;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Media Query for smaller screens (Vertical Layout) */
+@media (max-width: 1000px) {
+    .visual-section {
+        flex-direction: column; /* Stack elements vertically */
+        align-items: center;
+    }
+    .control-panel {
+        order: 1; /* Put control panel above canvas on small screens */
+        width: 100%;
+        max-width: 700px;
+        flex-direction: row; /* Display boxes horizontally */
+        flex-wrap: wrap; /* Wrap if needed */
+        justify-content: space-around;
+    }
+    canvas {
+        order: 2; /* Put canvas below control panel */
+    }
+    /* Adjust control boxes for horizontal display on medium screens */
+    #output-box, #status, #history-box {
+        flex: 1 1 30%; /* Give the three boxes roughly equal space */
+        max-width: 30%;
+        min-width: 200px; 
+    }
+}
+
+@media (max-width: 700px) {
+    /* Stack control boxes vertically again on very small screens */
+    .control-panel {
+        flex-direction: column;
+    }
+    #output-box, #status, #history-box {
+        max-width: 100%;
+    }
+    #output {
+        font-size: 90px;
+    }
+    .letter-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+</head>
+<body>
+
+<div class="container">
+    <h1>AI Sign Language Recognition System</h1>
+    <p class="subtitle">Real-time Sign Language | **Try holding the sign steady!**</p>
+    
+    <hr class="header-separator">
+
+    <div class="visual-section">
+        
+        <div class="control-panel" style="order: 1;">
+            
+            <div id="output-box">
+                <h2>Detected Sign</h2>
+                <div id="output">---</div>
+                <div class="confidence">Confidence: <span id="confidence">0%</span></div>
+            </div>
+            
+            <div id="status">
+                <h3>System Status</h3>
+                <div id="status-text">Initializing...</div>
+            </div>
+
+            <div id="history-box">
+                <h3>Recognized Sequence (Last 4)</h3>
+                <div id="sequence-display">
+                    </div>
+            </div>
+        </div>
+
+        <video id="video" autoplay></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+    </div>
+
+    <div class="instructions">
+        <h3>📋 Supported Gestures</h3>
+        <p style="margin-top: 15px; color: #666; font-weight: 400;">The system is optimized for ( A B D G H I L O U V W )</p>
+        <div class="letter-grid">
+            <div class="letter-item">A ✊</div>
+            <div class="letter-item">B 🖐️</div>
+            <div class="letter-item">D ☝️</div>
+            <div class="letter-item">G 👉</div>
+            <div class="letter-item">H ✌️</div>
+            <div class="letter-item">I (Error)</div>
+            <div class="letter-item">L 👍</div>
+            <div class="letter-item">O ⭕</div>
+            <div class="letter-item">U ⬆️</div>
+            <div class="letter-item">V 🤘</div>
+            <div class="letter-item">W 🤟</div>
+            <div class="letter-item">X (Error)</div>
+            <div class="letter-item">Y 👌</div>
+        </div>
+        <p style="margin-top: 25px; color: #3f2b96; font-weight: 600;">💡 Tip: Ensure your hand is clearly visible against a contrasting background with good lighting for the best results.</p>
+    </div>
+</div>
+
+<footer>
+    <p>Hand Sign Recognition System | Powered by MD TAIMIA SEAM | Design Enhanced</p>
+</footer>
+
+<script>
+// DOM Elements
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const output = document.getElementById("output");
+const confidenceEl = document.getElementById("confidence");
+const statusText = document.getElementById("status-text");
+const sequenceDisplay = document.getElementById("sequence-display"); // NEW Element
+
+// Detection variables
+let lastDetection = "---";
+let detectionConfidence = 0;
+const detectionHistory = [];
+const HISTORY_LENGTH = 5;
+
+// NEW History sequence state
+const MAX_SEQUENCE_LENGTH = 4;
+let recognizedSequence = []; // Stores the confirmed sequence of letters
+
+// --- Helper Functions ---
+function getDistance(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
+
+function getAngle(p1, p2, p3) {
+    const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
+    const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
+    const dot = v1.x * v2.x + v1.y * v2.y;
+    const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+    const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+    return Math.acos(dot / (mag1 * mag2)) * (180 / Math.PI);
+}
+
+// Check if finger is extended (pointing up)
+function isFingerExtended(tip, pip, mcp) {
+    // For vertical detection: tip should be above pip
+    const isUp = tip.y < pip.y - 0.02;
+    
+    // Additional check: finger should be reasonably straight
+    const angle = getAngle(mcp, pip, tip);
+    const isStraight = angle > 150; // Almost straight
+    
+    return isUp && isStraight;
+}
+
+// Check if finger is bent (curled)
+function isFingerBent(tip, pip, mcp) {
+    // For bent detection: tip should be below pip
+    const isDown = tip.y > pip.y + 0.02;
+    
+    // Additional check: finger should be bent
+    const angle = getAngle(mcp, pip, tip);
+    const isBent = angle < 120;
+    
+    return isDown && isBent;
+}
+
+// Check if thumb is extended sideways
+function isThumbExtended(thumbTip, thumbIp, wrist) {
+    // Calculate horizontal extension
+    const horizontalDistance = Math.abs(thumbTip.x - wrist.x);
+    const verticalDistance = Math.abs(thumbTip.y - wrist.y);
+    
+    // Thumb is extended if it's more horizontal than vertical
+    return horizontalDistance > verticalDistance * 1.5;
+}
+
+// Check if thumb is pointing up (vertical)
+function isThumbUp(thumbTip, thumbIp) {
+    return thumbTip.y < thumbIp.y - 0.02;
+}
+
+// --- Main Recognition Function ---
+function recognizeSign(landmarks) {
+    const wrist = landmarks[0];
+    
+    // Finger landmarks
+    const thumbTip = landmarks[4];
+    const thumbIp = landmarks[3];
+    const thumbMCP = landmarks[2];
+    
+    const indexTip = landmarks[8];
+    const indexPip = landmarks[6];
+    const indexMcp = landmarks[5];
+    
+    const middleTip = landmarks[12];
+    const middlePip = landmarks[10];
+    const middleMcp = landmarks[9];
+    
+    const ringTip = landmarks[16];
+    const ringPip = landmarks[14];
+    const ringMcp = landmarks[13];
+    
+    const pinkyTip = landmarks[20];
+    const pinkyPip = landmarks[18];
+    const pinkyMcp = landmarks[17];
+    
+    // Check finger states with improved logic
+    const isIndexUp = isFingerExtended(indexTip, indexPip, indexMcp);
+    const isMiddleUp = isFingerExtended(middleTip, middlePip, middleMcp);
+    const isRingUp = isFingerExtended(ringTip, ringPip, ringMcp);
+    const isPinkyUp = isFingerExtended(pinkyTip, pinkyPip, pinkyMcp);
+    
+    const isIndexDown = isFingerBent(indexTip, indexPip, indexMcp);
+    const isMiddleDown = isFingerBent(middleTip, middlePip, middleMcp);
+    const isRingDown = isFingerBent(ringTip, ringPip, ringMcp);
+    const isPinkyDown = isFingerBent(pinkyTip, pinkyPip, pinkyMcp);
+    
+    const isThumbOut = isThumbExtended(thumbTip, thumbIp, wrist);
+    const isThumbUpVertical = isThumbUp(thumbTip, thumbIp);
+    
+    // Distances for specific letters
+    const thumbIndexDist = getDistance(thumbTip, indexTip);
+    const indexMiddleDist = getDistance(indexTip, middleTip);
+    
+    // Calculate finger direction (horizontal vs vertical)
+    const indexAngle = Math.abs(Math.atan2(indexTip.y - indexMcp.y, indexTip.x - indexMcp.x) * (180 / Math.PI));
+    const isIndexHorizontal = (indexAngle < 30 || indexAngle > 150); // Mostly horizontal
+    
+    const middleAngle = Math.abs(Math.atan2(middleTip.y - middleMcp.y, middleTip.x - middleMcp.x) * (180 / Math.PI));
+    const isMiddleHorizontal = (middleAngle < 30 || middleAngle > 150);
+    
+    // --- Letter Detection with IMPROVED Priority ---
+    
+    // 1. O - Clear circle shape (high priority)
+    if (isIndexDown && isMiddleDown && isRingDown && isPinkyDown && thumbIndexDist < 0.04) {
+        return { letter: "O", confidence: 0.95 };
+    }
+    
+    // 2. A - Pure fist (all fingers completely down, thumb not touching)
+    if (isIndexDown && isMiddleDown && isRingDown && isPinkyDown) {
+        // Make sure thumb is not extended out
+        if (!isThumbOut && thumbIndexDist > 0.06) {
+            return { letter: "A", confidence: 0.9 };
+        }
+    }
+    
+    // 3. I - Pinky up ONLY, others down (including thumb down)
+    if (isPinkyUp && isIndexDown && isMiddleDown && isRingDown) {
+        // Ensure thumb is NOT up or out (key difference from Y)
+        const thumbDistToWrist = getDistance(thumbTip, wrist);
+        if (!isThumbUpVertical && !isThumbOut && thumbDistToWrist < 0.1) {
+            return { letter: "I", confidence: 0.88 };
+        }
+    }
+    
+    // 4. Y - Thumb AND pinky up, others down
+    if (isPinkyUp && isIndexDown && isMiddleDown && isRingDown) {
+        // Check if thumb is up OR out (key difference from I)
+        if (isThumbUpVertical || isThumbOut) {
+            // Additional check: thumb should be clearly extended
+            const thumbDistToWrist = getDistance(thumbTip, wrist);
+            if (thumbDistToWrist > 0.08) {
+                return { letter: "Y", confidence: 0.87 };
+            }
+        }
+    }
+    
+    // 5. L - Index up and thumb out (must check BEFORE D)
+    if (isIndexUp && isThumbOut && isMiddleDown && isRingDown && isPinkyDown) {
+        // Additional check: index should be reasonably vertical, not horizontal
+        if (!isIndexHorizontal) {
+            return { letter: "L", confidence: 0.89 };
+        }
+    }
+    
+    // 6. D - Index up only, vertical (without thumb out)
+    if (isIndexUp && !isIndexHorizontal && !isThumbOut && isMiddleDown && isRingDown && isPinkyDown) {
+        return { letter: "D", confidence: 0.86 };
+    }
+    
+    // 7. G - Index horizontal pointing, others down
+    if (isIndexHorizontal && !isMiddleHorizontal && isMiddleDown && isRingDown && isPinkyDown) {
+        return { letter: "G", confidence: 0.82 };
+    }
+    
+    // 8. H - Index and Middle horizontal
+    if (isIndexHorizontal && isMiddleHorizontal && isRingDown && isPinkyDown) {
+        return { letter: "H", confidence: 0.84 };
+    }
+    
+    // 9. B - All fingers up
+    if (isIndexUp && isMiddleUp && isRingUp && isPinkyUp) {
+        return { letter: "B", confidence: 0.92 };
+    }
+    
+    // 10. U - Index and Middle up, together
+    if (isIndexUp && isMiddleUp && !isRingUp && !isPinkyUp && indexMiddleDist < 0.05) {
+        return { letter: "U", confidence: 0.83 };
+    }
+    
+    // 11. V - Index and Middle up, apart
+    if (isIndexUp && isMiddleUp && !isRingUp && !isPinkyUp && indexMiddleDist >= 0.05) {
+        return { letter: "V", confidence: 0.85 };
+    }
+    
+    // 12. W - Three fingers up
+    if (isIndexUp && isMiddleUp && isRingUp && !isPinkyUp) {
+        return { letter: "W", confidence: 0.84 };
+    }
+    
+    // 13. X - Index finger specifically bent (distinguish from A)
+    const indexBendAngle = getAngle(indexMcp, indexPip, indexTip);
+    if (indexBendAngle < 100 && isMiddleDown && isRingDown && isPinkyDown) {
+        // Additional check: thumb not touching index
+        if (thumbIndexDist > 0.06) {
+            return { letter: "X", confidence: 0.85 };
+        }
+    }
+    
+    return { letter: "Unknown", confidence: 0.1 };
+}
+
+// --- NEW Function: Update History Box ---
+function updateHistoryBox() {
+    // 1. Clear current content
+    sequenceDisplay.innerHTML = '';
+
+    // 2. Iterate through the sequence array
+    recognizedSequence.forEach((letter, index) => {
+        const item = document.createElement('div');
+        item.className = 'sequence-item';
+        item.textContent = letter;
+        // Optionally set a data attribute for order
+        item.setAttribute('data-index', index + 1);
+        sequenceDisplay.appendChild(item);
+    });
+
+    // 3. Fill remaining slots with placeholder dashes if less than MAX_SEQUENCE_LENGTH
+    const fillersNeeded = MAX_SEQUENCE_LENGTH - recognizedSequence.length;
+    for (let i = 0; i < fillersNeeded; i++) {
+        const item = document.createElement('div');
+        item.className = 'sequence-item';
+        item.textContent = '—';
+        sequenceDisplay.prepend(item); // Add to the front to push existing content to the right
+    }
+}
+
+
+let lastConfirmedLetter = null; // Track the last confirmed letter to avoid rapid duplicates
+
+// --- Smoothing Detection (Modified) ---
+function smoothDetection(newDetection) {
+    // Add to history
+    detectionHistory.push(newDetection);
+    if (detectionHistory.length > HISTORY_LENGTH) {
+        detectionHistory.shift();
+    }
+    
+    // Count occurrences
+    const counts = {};
+    detectionHistory.forEach(d => {
+        counts[d.letter] = (counts[d.letter] || 0) + 1;
+    });
+    
+    // Find most frequent
+    let maxLetter = "Unknown";
+    let maxCount = 0;
+    let totalConfidence = 0;
+    let confidenceCount = 0;
+    
+    for (const [letter, count] of Object.entries(counts)) {
+        if (count > maxCount) {
+            maxCount = count;
+            maxLetter = letter;
+        }
+        
+        // Calculate average confidence for this letter
+        const matchingDets = detectionHistory.filter(d => d.letter === letter);
+        const avgConfidence = matchingDets.reduce((sum, d) => sum + d.confidence, 0) / matchingDets.length;
+        totalConfidence += avgConfidence;
+        confidenceCount++;
+    }
+    
+    const avgConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
+    
+    // Only update if we have enough consistent detections and it's not the same as the last confirmed one
+    if (maxCount >= 3 && maxLetter !== "Unknown") {
+        
+        // **NEW LOGIC FOR HISTORY BOX**
+        if (maxLetter !== lastConfirmedLetter) {
+            // 1. Add new letter to the sequence
+            recognizedSequence.push(maxLetter);
+            
+            // 2. Maintain max length (queue behavior: remove the oldest)
+            if (recognizedSequence.length > MAX_SEQUENCE_LENGTH) {
+                recognizedSequence.shift(); // Remove the oldest item (first in array)
+            }
+            
+            // 3. Update the display
+            updateHistoryBox();
+
+            // 4. Update the tracker
+            lastConfirmedLetter = maxLetter;
+            
+            // 5. Clear detection history to allow a new sign to be recognized immediately
+            detectionHistory.length = 0; 
+        }
+        
+        return { letter: maxLetter, confidence: avgConfidence };
+    }
+    
+    // If detection is poor or unknown, reset last confirmed letter to allow the next good detection through
+    if (maxLetter === "Unknown") {
+          lastConfirmedLetter = null;
+    }
+
+    return { letter: "Unknown", confidence: 0.1 };
+}
+
+// --- MediaPipe Setup ---
+const hands = new Hands({
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.8, 
+    minTrackingConfidence: 0.8
+});
+
+hands.onResults(results => {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw video feed (this is the original, unflipped image)
+    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        statusText.textContent = "Hand Detected ✅";
+        statusText.style.color = "#4CAF50";
+        
+        for (const landmarks of results.multiHandLandmarks) {
+            // Draw hand skeleton (landmarks drawn on unflipped image, CSS flips final display)
+            drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+                color: '#00c6ff', 
+                lineWidth: 4
+            });
+            
+            // Draw landmarks
+            drawLandmarks(ctx, landmarks, {
+                color: '#FF6B6B', 
+                radius: 6,
+                fillColor: '#FFFFFF'
+            });
+            
+            // Detect sign
+            const detection = recognizeSign(landmarks);
+            
+            // Apply smoothing
+            const smoothed = smoothDetection(detection);
+            
+            // Update display
+            if (smoothed.letter !== "Unknown" && smoothed.confidence > 0.5) {
+                output.textContent = smoothed.letter;
+                confidenceEl.textContent = Math.round(smoothed.confidence * 100) + "%";
+                confidenceEl.style.color = smoothed.confidence > 0.7 ? "#4CAF50" : 
+                                             smoothed.confidence > 0.5 ? "#FF9800" : "#FF6B6B";
+                
+                // === FIX: Flip the canvas context back for text drawing (Text will look correct on the CSS-flipped canvas) ===
+                ctx.save(); // Save again before flipping context for text
+                ctx.scale(-1, 1); 
+                ctx.translate(-canvas.width, 0); 
+                
+                // Visual feedback on canvas
+                ctx.font = "bold 60px 'Poppins', sans-serif";
+                ctx.fillStyle = smoothed.confidence > 0.7 ? "rgba(76, 175, 80, 0.9)" : 
+                                 smoothed.confidence > 0.5 ? "rgba(255, 152, 0, 0.9)" : "rgba(255, 107, 107, 0.9)";
+                ctx.textAlign = "center";
+                
+                const boxWidth = 200;
+                const boxHeight = 60;
+                ctx.fillRect(canvas.width / 2 - boxWidth / 2, 30, boxWidth, boxHeight);
+                
+                ctx.fillStyle = 'white';
+                ctx.fillText(smoothed.letter, canvas.width / 2, 80);
+                
+                ctx.restore(); // Restore context back to normal (unflipped for the main drawing)
+                // ========================================================================================================
+            } else {
+                output.textContent = "---";
+                confidenceEl.textContent = "0%";
+                confidenceEl.style.color = "#666";
+            }
+        }
+    } else {
+        statusText.textContent = "No Hand Detected ❌";
+        statusText.style.color = "#FF6B6B";
+        output.textContent = "---";
+        confidenceEl.textContent = "0%";
+        confidenceEl.style.color = "#666";
+    }
+    
+    ctx.restore();
+});
+
+// --- Camera Setup ---
+const camera = new Camera(video, {
+    onFrame: async () => {
+        try {
+            await hands.send({image: video});
+        } catch (error) {
+            console.error("Camera error:", error);
+            statusText.textContent = "Camera Error";
+            statusText.style.color = "#FF6B6B";
+        }
+    },
+    width: 640,
+    height: 480
+});
+
+// Start camera with error handling
+camera.start().then(() => {
+    statusText.textContent = "Camera Active ✅";
+    statusText.style.color = "#4CAF50";
+}).catch(error => {
+    console.error("Failed to start camera:", error);
+    statusText.textContent = "Camera Access Denied 🛑";
+    statusText.style.color = "#FF6B6B";
+    
+    // Show error on canvas
+    ctx.fillStyle = "red";
+    ctx.fillRect(0, 0, canvas.width, canvas.height); // Red background
+    ctx.fillStyle = "white";
+    ctx.font = "bold 24px 'Poppins', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Camera access denied.", canvas.width / 2, canvas.height / 2 - 20);
+    ctx.font = "16px 'Poppins', sans-serif";
+    ctx.fillText("Please allow camera permissions and refresh the page.", canvas.width / 2, canvas.height / 2 + 10);
+});
+
+// --- Resize handler ---
+window.addEventListener('resize', () => {
+    // Maintain aspect ratio
+    const visualSection = document.querySelector('.visual-section');
+    if (!visualSection) return;
+    
+    const containerWidth = visualSection.offsetWidth;
+    const aspectRatio = 640 / 480;
+    
+    // Calculate new width relative to container, accounting for control panel width in narrow views
+    let newWidth = 640; 
+    
+    if (window.innerWidth < 1000) { // On mobile/vertical layout
+         newWidth = Math.min(640, containerWidth - 30);
+    } else { // On desktop layout
+        // Estimate space taken by control panel (max-width: 400px + gap: 30px)
+        newWidth = Math.min(640, containerWidth - 430); 
+    }
+    
+    const newHeight = newWidth / aspectRatio;
+    
+    // Set actual canvas drawing size
+    canvas.width = 640; 
+    canvas.height = 480;
+
+    // Set canvas display size via CSS (which is handled by the media queries, but this ensures initial aspect ratio)
+    canvas.style.maxWidth = newWidth + 'px'; 
+    canvas.style.height = newHeight + 'px';
+});
+
+// Call resize once on load for initial sizing
+window.dispatchEvent(new Event('resize'));
+
+// Initialize the history box display on load
+updateHistoryBox();
+</script>
+
+</body>
+</html>
